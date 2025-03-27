@@ -24,7 +24,6 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
@@ -66,6 +65,7 @@ import org.springframework.util.Assert;
  * @author Mahmoud Ben Hassine
  * @author Baris Cubukcuoglu
  * @author Minsoo Kim
+ * @author Yanming Zhou
  * @see StepExecutionDao
  */
 public class JdbcStepExecutionDao extends AbstractJdbcBatchMetadataDao implements StepExecutionDao, InitializingBean {
@@ -97,7 +97,11 @@ public class JdbcStepExecutionDao extends AbstractJdbcBatchMetadataDao implement
 			SELECT SE.STEP_EXECUTION_ID, SE.STEP_NAME, SE.START_TIME, SE.END_TIME, SE.STATUS, SE.COMMIT_COUNT, SE.READ_COUNT, SE.FILTER_COUNT, SE.WRITE_COUNT, SE.EXIT_CODE, SE.EXIT_MESSAGE, SE.READ_SKIP_COUNT, SE.WRITE_SKIP_COUNT, SE.PROCESS_SKIP_COUNT, SE.ROLLBACK_COUNT, SE.LAST_UPDATED, SE.VERSION, SE.CREATE_TIME, JE.JOB_EXECUTION_ID, JE.START_TIME, JE.END_TIME, JE.STATUS, JE.EXIT_CODE, JE.EXIT_MESSAGE, JE.CREATE_TIME, JE.LAST_UPDATED, JE.VERSION
 			FROM %PREFIX%JOB_EXECUTION JE
 				JOIN %PREFIX%STEP_EXECUTION SE ON SE.JOB_EXECUTION_ID = JE.JOB_EXECUTION_ID
-			WHERE JE.JOB_INSTANCE_ID = ? AND SE.STEP_NAME = ?
+			WHERE SE.STEP_EXECUTION_ID IN (
+				SELECT MAX(STEP_EXECUTION_ID)
+				FROM %PREFIX%JOB_EXECUTION JE2 JOIN %PREFIX%STEP_EXECUTION SE2 ON SE2.JOB_EXECUTION_ID = JE2.JOB_EXECUTION_ID
+				WHERE JE2.JOB_INSTANCE_ID = ? AND SE2.STEP_NAME = ?
+			)
 			""";
 
 	private static final String CURRENT_VERSION_STEP_EXECUTION = """
@@ -116,10 +120,6 @@ public class JdbcStepExecutionDao extends AbstractJdbcBatchMetadataDao implement
 			DELETE FROM %PREFIX%STEP_EXECUTION
 			WHERE STEP_EXECUTION_ID = ?
 			""";
-
-	private static final Comparator<StepExecution> BY_CREATE_TIME_DESC_ID_DESC = Comparator
-		.comparing(StepExecution::getCreateTime, Comparator.reverseOrder())
-		.thenComparing(StepExecution::getId, Comparator.reverseOrder());
 
 	private int exitMessageLength = DEFAULT_EXIT_MESSAGE_LENGTH;
 
@@ -351,7 +351,9 @@ public class JdbcStepExecutionDao extends AbstractJdbcBatchMetadataDao implement
 			jobExecution.setVersion(rs.getInt(27));
 			return new StepExecutionRowMapper(jobExecution).mapRow(rs, rowNum);
 		}, jobInstance.getInstanceId(), stepName);
-		executions.sort(BY_CREATE_TIME_DESC_ID_DESC);
+
+		Assert.state(executions.size() <= 1, "There must be at most one latest step execution");
+
 		if (executions.isEmpty()) {
 			return null;
 		}
