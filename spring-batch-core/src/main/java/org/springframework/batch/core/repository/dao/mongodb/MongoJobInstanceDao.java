@@ -107,7 +107,7 @@ public class MongoJobInstanceDao implements JobInstanceDao {
 
 	@Override
 	public JobInstance getJobInstance(JobExecution jobExecution) {
-		return getJobInstance(jobExecution.getJobInstanceId());
+		return getJobInstance(jobExecution.getJobInstance().getId());
 	}
 
 	@Override

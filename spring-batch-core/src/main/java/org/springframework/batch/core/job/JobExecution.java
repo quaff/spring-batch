@@ -43,6 +43,7 @@ import org.springframework.batch.infrastructure.item.ExecutionContext;
  * @author Mahmoud Ben Hassine
  * @author Dimitrios Liapis
  * @author Taeik Lim
+ * @author Yanming Zhou
  *
  */
 public class JobExecution extends Entity {
@@ -159,9 +160,10 @@ public class JobExecution extends Entity {
 	 * Convenience getter for the {@code id} of the enclosing job instance. Useful for DAO
 	 * implementations.
 	 * @return the {@code id} of the enclosing job instance.
+	 * @deprecated use {@code getJobInstance().getId()} instead. Scheduled for removal in
+	 * version 7.0.
 	 */
-	// TODO why is that needed for DAO implementations? should not be needed with the new
-	// model
+	@Deprecated(since = "6.1", forRemoval = true)
 	public long getJobInstanceId() {
 		return this.jobInstance.getId();
 	}
